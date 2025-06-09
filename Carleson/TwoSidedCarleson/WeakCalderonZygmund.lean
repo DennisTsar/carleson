@@ -238,7 +238,17 @@ def czRemainder (ha : 4 ≤ a) (hf : BoundedFiniteSupport f) (α : ℝ≥0∞) (
 /-- Part of Lemma 10.2.5, this is essentially (10.2.16) (both cases). -/
 def tsum_czRemainder' (ha : 4 ≤ a) (hf : BoundedFiniteSupport f) (hX : GeneralCase f α) (x : X) :
     ∑ᶠ i, czRemainder' ha hf hX i x = czRemainder ha hf α x := by
-  sorry
+  by_cases h : ∃ j, x ∈ czPartition ha hf hX j
+  · letI (i) : Decidable (x ∈ czPartition ha hf hX i) := Classical.propDecidable _
+    obtain ⟨j, hj⟩ := h
+    simp only [czRemainder', indicator_apply, Pi.sub_apply, czRemainder]
+    have : f x - czApproximation ha hf α x = if x ∈ czPartition ha hf hX j then _ else 0 :=
+      (if_pos hj).symm
+    conv_rhs => rw [this]
+    refine finsum_eq_single _ j fun g hg ↦ ?_
+    apply if_neg <| Disjoint.notMem_of_mem_left ?_ hj
+    exact czPartition_pairwiseDisjoint ha (mem_univ _) (mem_univ _) hg.symm
+  · simp_all [czRemainder', czRemainder, czApproximation]
 
 /-- Part of Lemma 10.2.5 (both cases). -/
 lemma measurable_czApproximation (ha : 4 ≤ a) {hf : BoundedFiniteSupport f} :
@@ -268,10 +278,12 @@ lemma eLpNorm_czApproximation_le (ha : 4 ≤ a) {hf : BoundedFiniteSupport f} (h
   sorry
 
 /-- Part of Lemma 10.2.5, equation (10.2.19) (general case). -/
-lemma support_czRemainder'_subset (ha : 4 ≤ a) {hf : BoundedFiniteSupport f} {hX : GeneralCase f α} (hα : 0 < α)
+lemma support_czRemainder'_subset (ha : 4 ≤ a) {hf : BoundedFiniteSupport f} {hX : GeneralCase f α}
     {i : ℕ} :
     support (czRemainder' ha hf hX i) ⊆ czBall3 ha hf hX i := by
-  sorry
+  rw [support_subset_iff']
+  intro x hx
+  exact indicator_of_notMem (fun a ↦ hx (czPartition_subset_czBall3 ha a)) _
 
 /-- Part of Lemma 10.2.5, equation (10.2.20) (general case). -/
 lemma integral_czRemainder' (ha : 4 ≤ a) {hf : BoundedFiniteSupport f} {hX : GeneralCase f α} (hα : 0 < α)
