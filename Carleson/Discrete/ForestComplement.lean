@@ -437,7 +437,7 @@ lemma iUnion_L0' : ⋃ (l < n), 𝔏₀' (X := X) k n l = 𝔏₀ k n := by
   classical
   refine iUnion_lt_minLayer_iff_bounded_series.mpr fun p ↦ ?_
   suffices ¬∃ s : LTSeries (𝔏₀ (X := X) k n), s.length = n by
-    rcases lt_or_le p.length n with c | c
+    rcases lt_or_ge p.length n with c | c
     · exact c
     · exact absurd ⟨p.take ⟨n, by omega⟩, by rw [RelSeries.take_length]⟩ this
   by_contra h; obtain ⟨s, hs⟩ := h; let sl := s.last; have dsl := sl.2.1.2.1
@@ -890,15 +890,20 @@ lemma lintegral_enorm_carlesonSum_le_of_isAntichain_subset_ℭ
     · simp
   _ = 2 ^ ((4 * a + 1) * (q - 1) / (8 * ↑a ^ 4)) * 2 ^ ((2 * a + 5) * (q⁻¹ - 2⁻¹)) *
       (volume G ^ (1 - q⁻¹) * (volume F ^ q⁻¹ * 2 ^ (- ((q - 1) / (8 * ↑a ^ 4) * n)))) := by
-    have IF : (volume F) ^ (q⁻¹) = (volume F) ^ ((q ⁻¹ - 2⁻¹) + 2⁻¹) := by congr; abel
-    have IG : (volume G) ^ (1 - q⁻¹) = (volume G) ^ (2⁻¹ - (q⁻¹ - 2⁻¹)) := by
-      congr 1
-      simp only [sub_sub_eq_add_sub, sub_left_inj]
-      norm_num
-    rw [IF, IG, ENNReal.rpow_sub (2⁻¹) _ ProofData.volume_G_pos.ne' volume_G_ne_top,
-      ENNReal.rpow_add_of_nonneg (x := volume F) _ _ (inv_q_sub_half_nonneg X) (by norm_num),
-      ENNReal.div_eq_inv_mul, ENNReal.div_eq_inv_mul]
-    ring_nf
+    rcases eq_or_ne (volume G) 0 with vG | vG
+    · have : 0 < 1 - q⁻¹ := by rw [sub_pos, inv_lt_one_iff₀]; exact .inr (one_lt_q X)
+      rw [vG, ENNReal.zero_rpow_of_pos (show 0 < (1 / 2 : ℝ) by positivity),
+        ENNReal.zero_rpow_of_pos this]
+      simp only [zero_mul, mul_zero]
+    · have IF : (volume F) ^ (q⁻¹) = (volume F) ^ ((q ⁻¹ - 2⁻¹) + 2⁻¹) := by congr; abel
+      have IG : (volume G) ^ (1 - q⁻¹) = (volume G) ^ (2⁻¹ - (q⁻¹ - 2⁻¹)) := by
+        congr 1
+        simp only [sub_sub_eq_add_sub, sub_left_inj]
+        norm_num
+      rw [IF, IG, ENNReal.rpow_sub (2⁻¹) _ vG volume_G_ne_top,
+        ENNReal.rpow_add_of_nonneg (x := volume F) _ _ (inv_q_sub_half_nonneg X) (by norm_num),
+        ENNReal.div_eq_inv_mul, ENNReal.div_eq_inv_mul]
+      ring_nf
   _ ≤ 2 ^ ((2 : ℝ)⁻¹ + (a + 5/2)) *
       (volume G ^ (1 - q⁻¹) * (volume F ^ q⁻¹ * 2 ^ (- ((q - 1) / (8 * ↑a ^ 4) * n)))) := by
     rw [← ENNReal.rpow_add _ _ (NeZero.ne 2) ENNReal.ofNat_ne_top]
@@ -1017,8 +1022,8 @@ lemma lintegral_carlesonSum_𝔓₁_compl_le_sum_aux1 [ProofData a q K σ₁ σ�
     congr
     omega
 
- omit [TileStructure Q D κ S o] in
- lemma lintegral_carlesonSum_𝔓₁_compl_le_sum_aux2 {N : ℕ} :
+omit [TileStructure Q D κ S o] in
+lemma lintegral_carlesonSum_𝔓₁_compl_le_sum_aux2 {N : ℕ} :
     ∑ x ≤ N, (((12 + 8 * Z) + (19 + 20 * Z) * x + (7 + 16 * Z) * x ^ 2 + (4 * Z) * x ^ 3) *
         (2 : ℝ≥0∞) ^ (-((q - 1) / (8 * ↑a ^ 4) * x : ℝ)))
     ≤ (2 : ℝ≥0∞) ^ (28 * a + 20) / (nnq - 1) ^ 4 := by
@@ -1060,8 +1065,8 @@ lemma lintegral_carlesonSum_𝔓₁_compl_le_sum_aux1 [ProofData a q K σ₁ σ�
 def C5_1_3_optimized (a : ℕ) (q : ℝ≥0) := C2_0_3 a q * 2 ^ (29 * a + 23) / (q - 1) ^ 4
 
 /-- The constant used in Lemma 5.1.3 in the blueprint,
-with value `2 ^ (153 * a ^ 3) / (q - 1) ^ 5` -/
-def C5_1_3 (a : ℕ) (q : ℝ≥0) : ℝ≥0 := 2 ^ (153 * a ^ 3) / (q - 1) ^ 5
+with value `2 ^ (131 * a ^ 3) / (q - 1) ^ 5` -/
+def C5_1_3 (a : ℕ) (q : ℝ≥0) : ℝ≥0 := 2 ^ (131 * a ^ 3) / (q - 1) ^ 5
 
 omit [TileStructure Q D κ S o] in
 lemma C5_1_3_pos : 0 < C5_1_3 a nnq := by
@@ -1073,14 +1078,14 @@ omit [TileStructure Q D κ S o] in
 lemma C5_1_3_optimized_le_C5_1_3 : C5_1_3_optimized a nnq ≤ C5_1_3 a nnq := by
   simp only [C5_1_3_optimized, C5_1_3, C2_0_3]
   calc
-    _ ≤ 2 ^ (150 * a ^ 3) / (nnq - 1) * 2 ^ (3 * a ^ 3) / (nnq - 1) ^ 4 := by
+    _ ≤ 2 ^ (128 * a ^ 3) / (nnq - 1) * 2 ^ (3 * a ^ 3) / (nnq - 1) ^ 4 := by
       have := four_le_a X
       gcongr; · exact one_le_two
       calc
         _ ≤ 3 * 4 * 4 * a := by omega
         _ ≤ 3 * a * a * a := by gcongr
         _ = _ := by ring
-    _ = 2 ^ (150 * a ^ 3 + 3 * a ^ 3) / (nnq - 1) ^ (4 + 1) := by
+    _ = 2 ^ (128 * a ^ 3 + 3 * a ^ 3) / (nnq - 1) ^ (4 + 1) := by
       rw [pow_add, pow_add, div_mul_eq_div_div]
       simp only [div_eq_inv_mul, pow_one]
       ring

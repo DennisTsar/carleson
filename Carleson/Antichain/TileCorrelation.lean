@@ -742,17 +742,8 @@ lemma enorm_eq_zero_of_notMem_closedBall {g : X → ℂ} (hg1 : ∀ x, ‖g x‖
     {x : X} (hx : x ∉ (closedBall (cancelPt X) (defaultD a ^ defaultS X / 4))) :
     ‖g x‖ₑ = 0 := by
   rw [enorm_eq_zero, ← norm_eq_zero]
-  apply le_antisymm _ (norm_nonneg _)
-  apply le_trans (hg1 _)
-  rw [Set.indicator_of_notMem (Set.notMem_subset ProofData.G_subset
-    (Set.notMem_subset ball_subset_closedBall hx))]
-
-/- omit [TileStructure Q D κ S o] in
-lemma nnnorm_eq_zero_of_notMem_closedBall {g : X → ℂ} (hg1 : ∀ x, ‖g x‖ ≤ G.indicator 1 x)
-    {x : X} (hx : x ∉ (closedBall (cancelPt X) (defaultD a ^ defaultS X / 4))) :
-    ‖g x‖₊ = 0 := by
-  rw [nnnorm_eq_zero, ← enorm_eq_zero, enorm_eq_zero_of_notMem_closedBall hg1 hx]
- -/
+  refine le_antisymm ((hg1 _).trans ?_) (norm_nonneg _)
+  rw [indicator_of_notMem (notMem_subset G_subset (notMem_subset ball_subset_closedBall hx))]
 
 omit [TileStructure Q D κ S o] in
 lemma eq_zero_of_notMem_closedBall {g : X → ℂ} (hg1 : ∀ x, ‖g x‖ ≤ G.indicator 1 x)
@@ -760,24 +751,11 @@ lemma eq_zero_of_notMem_closedBall {g : X → ℂ} (hg1 : ∀ x, ‖g x‖ ≤ G
     g x = 0 := by
   simpa [coe_nnnorm, norm_eq_zero] using enorm_eq_zero_of_notMem_closedBall hg1 hx
 
-omit [TileStructure Q D κ S o] in
-lemma boundedCompactSupport_g {g : X → ℂ} (hg : Measurable g) (hg1 : ∀ x, ‖g x‖ ≤ G.indicator 1 x) :
-    BoundedCompactSupport g := by
-  constructor
-  · constructor
-    · exact hg.aestronglyMeasurable
-    · have hg1' : ∀ᵐ x, ‖g x‖₊ ≤ 1 := by
-        apply Filter.Eventually.of_forall
-          (fun x ↦ (le_trans (hg1 x) (indicator_one_le_one _)))
-      exact lt_of_le_of_lt (eLpNorm_le_of_ae_nnnorm_bound hg1') (by simp)
-  · exact exists_compact_iff_hasCompactSupport.mp ⟨(closedBall o (D ^ S / 4)),
-      ⟨isCompact_closedBall o ((D : ℝ) ^ S / 4), fun _ hx ↦ eq_zero_of_notMem_closedBall hg1 hx⟩⟩
-
 lemma boundedCompactSupport_star_Ks_mul_g (p' : 𝔓 X) {g : X → ℂ} (hg : Measurable g)
     (hg1 : ∀ x, ‖g x‖ ≤ G.indicator 1 x) :
     BoundedCompactSupport (fun (x : X × X) ↦ ((starRingEnd ℂ) (Ks (𝔰 p') x.1 x.2) *  g x.1)) := by
-  apply BoundedCompactSupport.mul_bdd_left' (boundedCompactSupport_g hg hg1) continuous_fst
-    ?_ ?_ ?_ ?_
+  apply BoundedCompactSupport.mul_bdd_left' (bcs_of_measurable_of_le_indicator_g hg hg1)
+    continuous_fst
   · exact quasiMeasurePreserving_fst
   · apply MeasureTheory.StronglyMeasurable.aestronglyMeasurable
     apply Measurable.stronglyMeasurable
@@ -830,11 +808,11 @@ lemma boundedCompactSupport_star_Ks_mul_g (p' : 𝔓 X) {g : X → ℂ} (hg : Me
       _ ≤ C + C := by gcongr; exact hC x.1 x.2 hx
       _ = 2 * C := by ring
 
-lemma boundedCompactSupport_Ks_mul_star_g (p : 𝔓 X)  {g : X → ℂ}
+lemma boundedCompactSupport_Ks_mul_star_g (p : 𝔓 X) {g : X → ℂ}
     (hg : Measurable g) (hg1 : ∀ x, ‖g x‖ ≤ G.indicator 1 x) :
     BoundedCompactSupport (fun (x : X × X) ↦ ((Ks (𝔰 p) x.1 x.2 * ((starRingEnd ℂ) ∘ g) x.1))) := by
   refine BoundedCompactSupport.mul_bdd_left' (ν := volume) ?_ continuous_fst ?_ ?_ ?_ ?_
-  · apply BoundedCompactSupport.comp_left_norm (boundedCompactSupport_g hg hg1) (by simp)
+  · exact (bcs_of_measurable_of_le_indicator_g hg hg1).comp_left_norm (by simp)
       (continuous_conj) (by simp)
   · exact quasiMeasurePreserving_fst
   · apply StronglyMeasurable.aestronglyMeasurable
@@ -1284,32 +1262,33 @@ lemma correlation_le_of_empty_inter {p p' : 𝔓 X} {g : X → ℂ}
         volume (coeGrid (𝓘 p)) * (∫⁻ y in E p', ‖g y‖ₑ) * ∫⁻ y in E p, ‖g y‖ₑ := by
         positivity
 
--- Lemma 6.1.5 (part I)
-lemma correlation_le (ha : 4 ≤ a) {p p' : 𝔓 X} (hle : 𝔰 p' ≤ 𝔰 p) {g : X → ℂ}
+/-- Lemma 6.1.5 (part I) -/
+lemma correlation_le {p p' : 𝔓 X} (hle : 𝔰 p' ≤ 𝔰 p) {g : X → ℂ}
     (hg : Measurable g) (hg1 : ∀ x, ‖g x‖ ≤ G.indicator 1 x) :
-    ‖∫ y, (adjointCarleson p' g y) * conj (adjointCarleson p g y)‖ₑ ≤
-      C6_1_5 a * (1 + edist_(p') (𝒬 p') (𝒬 p)) ^ (-(2 * a^2 + a^3 : ℝ)⁻¹) /
-        volume (coeGrid (𝓘 p)) * (∫⁻ y in E p', ‖g y‖ₑ) * ∫⁻ y in E p, ‖g y‖ₑ := by
-  by_cases hinter : (ball (𝔠 p') (5 * D^𝔰 p') ∩ ball (𝔠 p) (5 * D^𝔰 p)).Nonempty
-  · exact correlation_le_of_nonempty_inter ha hle hg hg1 hinter
+    ‖∫ y, adjointCarleson p' g y * conj (adjointCarleson p g y)‖ₑ ≤
+    C6_1_5 a * (1 + edist_(p') (𝒬 p') (𝒬 p)) ^ (-(2 * a^2 + a^3 : ℝ)⁻¹) /
+    volume (𝓘 p : Set X) * (∫⁻ y in E p', ‖g y‖ₑ) * ∫⁻ y in E p, ‖g y‖ₑ := by
+  by_cases hinter : (ball (𝔠 p') (5 * D ^ 𝔰 p') ∩ ball (𝔠 p) (5 * D ^ 𝔰 p)).Nonempty
+  · exact correlation_le_of_nonempty_inter (four_le_a X) hle hg hg1 hinter
   · exact correlation_le_of_empty_inter hinter
 
--- Lemma 6.1.5 (part II)
-lemma correlation_zero_of_ne_subset (p p' : 𝔓 X) (g : X → ℂ)
-    (hp : ¬ coeGrid (𝓘 p) ⊆ ball (𝔠 p) (15 * D ^𝔰 p)) :
-    ‖∫ y, (adjointCarleson p' g y) * conj (adjointCarleson p g y)‖ₑ = 0 := by
-  simp only [enorm_eq_nnnorm, ENNReal.coe_eq_zero]
-  have hD : 1 ≤ (D : ℝ) := one_le_defaultD _
-  have h415 : (4 : ℝ) ≤ 15 := by linarith
-  have hsp : 𝔰 p = GridStructure.s (𝓘 p) := rfl
-  by_contra h0
-  simp only [nnnorm_eq_zero] at h0
-  apply hp
-  obtain ⟨y, hy⟩ := MeasureTheory.exists_ne_zero_of_integral_ne_zero h0 --6.2.33
-  simp only [ne_eq, mul_eq_zero, map_eq_zero, not_or] at hy
-  -- 6.2.35
-  rw [hsp]
-  exact subset_trans Grid_subset_ball (ball_subset_ball (by gcongr))
+/-- Lemma 6.1.5 (part II) -/
+lemma correlation_zero_of_ne_subset {p p' : 𝔓 X} (hle : 𝔰 p' ≤ 𝔰 p) {g : X → ℂ}
+    (hp : ¬(𝓘 p' : Set X) ⊆ ball (𝔠 p) (14 * D ^ 𝔰 p)) :
+    ‖∫ y, adjointCarleson p' g y * conj (adjointCarleson p g y)‖ₑ = 0 := by
+  contrapose! hp; rw [enorm_ne_zero] at hp
+  obtain ⟨y, hy⟩ := MeasureTheory.exists_ne_zero_of_integral_ne_zero hp
+  rw [mul_ne_zero_iff, map_ne_zero] at hy
+  refine Grid_subset_ball.trans fun x (mx : x ∈ ball (𝔠 p') (4 * D ^ 𝔰 p')) ↦ ?_
+  rw [mem_ball] at mx ⊢
+  calc
+    _ ≤ dist x (𝔠 p') + dist (𝔠 p') (𝔠 p) := dist_triangle ..
+    _ < 4 * D ^ 𝔰 p' + (5 * D ^ 𝔰 p' + 5 * D ^ 𝔰 p) := by
+      gcongr
+      exact dist_lt_of_not_disjoint_ball
+        (not_disjoint_iff.mpr ⟨_, range_support hy.1, range_support hy.2⟩)
+    _ ≤ 4 * D ^ 𝔰 p + (5 * D ^ 𝔰 p + 5 * D ^ 𝔰 p) := by gcongr <;> exact one_le_realD X
+    _ = _ := by ring
 
 end lemma_6_1_5
 
