@@ -2,6 +2,9 @@ import Carleson.Classical.HilbertKernel
 import Carleson.Classical.DirichletKernel
 import Carleson.Classical.SpectralProjectionBound
 import Carleson.ToMathlib.MeasureTheory.Integral.MeanInequalities
+import Mathlib.Data.Real.Pi.Bounds
+
+set_option linter.unusedVariables.analyzeTactics true
 
 /- This file contains the proof that the Hilbert kernel is a bounded operator. -/
 
@@ -11,6 +14,69 @@ open scoped Real ENNReal
 open Complex ComplexConjugate MeasureTheory Bornology Set
 -- open MeasureTheory Function Metric Bornology Real ENNReal MeasureTheory.ENNReal MeasureTheory
 
+open MeasureTheory ENNReal Real
+open scoped Real
+
+
+set_option linter.flexible false
+
+#check intervalIntegral.norm_integral_le_integral_norm_Ioc
+
+lemma eLpNorm_indicator_one_ne_top {g : ℝ → ℂ}
+    (hg : MemLp g ∞ volume) :
+    eLpNorm ((Set.Ioc 0 (2 * π)).indicator g) 1 volume ≠ ⊤ := by
+  -- finiteness of ‖g‖_∞ and of the measure of the interval
+  have hinf : eLpNorm g ∞ volume < ⊤ := hg.2
+  have hμ   : (volume (Set.Ioc 0 (2 * π)) : ℝ≥0∞) < ⊤ := by simp
+
+  -- integrate the bound over the interval
+  have hle : eLpNorm ((Set.Ioc 0 (2 * π)).indicator g) 1 volume ≤
+      eLpNorm g ∞ volume * volume (Set.Ioc 0 (2 * π)) := by
+    have : (∫⁻ x in Set.Ioc 0 (2 * π), ‖g x‖ₑ) ≤
+        eLpNorm g ∞ volume * volume (Set.Ioc 0 (2 * π)) := by
+      have hmono : (fun x ↦ ‖g x‖ₑ) ≤ᵐ[volume.restrict (Set.Ioc 0 (2 * π))]
+          fun _ : ℝ ↦ eLpNorm g ∞ volume := by
+        have h_all : (fun x ↦ ‖g x‖ₑ) ≤ᵐ[volume]
+            fun _ : ℝ ↦ eLpNorm g ∞ volume := by
+          have h' := ENNReal.ae_le_essSup (μ := volume) (f := fun y ↦ ‖g y‖ₑ)
+          simpa [eLpNormEssSup] using h'
+        exact ae_restrict_of_ae h_all
+      have hle' : (∫⁻ x in Set.Ioc 0 (2 * π), ‖g x‖ₑ) ≤
+          ∫⁻ x in Set.Ioc 0 (2 * π), eLpNorm g ∞ volume :=
+        lintegral_mono_ae hmono
+      have hconst : (∫⁻ x in Set.Ioc 0 (2 * π), eLpNorm g ∞ volume) =
+          eLpNorm g ∞ volume * volume (Set.Ioc 0 (2 * π)) := by
+        simp [lintegral_const, mul_comm]
+      exact (le_trans hle' (le_of_eq hconst))
+    simp [eLpNorm_one_eq_lintegral_enorm]
+    simp [enorm_indicator_eq_indicator_enorm]
+    have : (∫⁻ (x : ℝ), ‖(Ioc 0 (2 * π)).indicator g x‖ₑ) ≤
+        eLpNormEssSup g volume * ENNReal.ofReal (2 * π) := by
+      have hmono' : (fun x ↦ ‖g x‖ₑ) ≤ᵐ[volume.restrict (Set.Ioc 0 (2 * π))]
+          fun _ : ℝ ↦ eLpNormEssSup g volume := by
+        have h_all : (fun x ↦ ‖g x‖ₑ) ≤ᵐ[volume]
+            fun _ : ℝ ↦ eLpNormEssSup g volume := by
+          have h' := ENNReal.ae_le_essSup (μ := volume) (f := fun y ↦ ‖g y‖ₑ)
+          simpa using h'
+        exact ae_restrict_of_ae h_all
+      have hle'' : (∫⁻ x in Set.Ioc 0 (2 * π), ‖g x‖ₑ) ≤
+          ∫⁻ x in Set.Ioc 0 (2 * π), eLpNormEssSup g volume :=
+        lintegral_mono_ae hmono'
+      have hconst'' : (∫⁻ x in Set.Ioc 0 (2 * π), eLpNormEssSup g volume) =
+          eLpNormEssSup g volume * volume (Set.Ioc 0 (2 * π)) := by
+        simp [lintegral_const, mul_comm]
+      have hvol : volume (Set.Ioc 0 (2 * π)) = ENNReal.ofReal (2 * π) := by
+        simp [volume_Ioc, Real.pi_pos]
+      have : (∫⁻ x in Set.Ioc 0 (2 * π), ‖g x‖ₑ) ≤
+          eLpNormEssSup g volume * ENNReal.ofReal (2 * π) := by
+        have := le_trans hle'' (le_of_eq hconst'')
+        simpa [hvol] using this
+      simpa [enorm_indicator_eq_indicator_enorm] using this
+    simpa [enorm_indicator_eq_indicator_enorm] using this
+  -- RHS is finite, so the LHS can’t be ⊤
+  have : eLpNorm ((Set.Ioc 0 (2 * π)).indicator g) 1 volume < ⊤ :=
+    lt_of_le_of_lt hle (mul_lt_top (by gcongr) (by gcongr))
+  exact this.ne
 
 
 section
@@ -148,16 +214,314 @@ lemma young_convolution {f g : ℝ → ℂ} (hmf : AEMeasurable f) (periodic_f :
     (ContinuousLinearMap.mul ℝ ℂ) 0 h2 (le_refl 1) h2 (by rw [inv_one])
     periodic_f periodic_g hmf.aestronglyMeasurable hmg.aestronglyMeasurable 1 (by simp)
 
-/-- Lemma 11.3.4.
-The blueprint states this on `[-π, π]`, but I think we can consistently change this to `(0, 2π]`.
--/
-lemma integrable_bump_convolution {f g : ℝ → ℂ} {n : ℕ}
+
+#check Set.indicator_add_compl_eq_piecewise
+#check Set.indicator
+
+lemma aux1' {r x : ℝ} (hr : r ∈ Ioo 0 π) (hx : x ∈ Ioc 0 r) : r⁻¹ ≤ r / ‖1 - cexp (I * x)‖ ^ 2 := by
+  rw [mem_Ioo] at hr
+  rw [mem_Ioc] at hx
+
+  rw [norm_sub_rev, norm_exp_I_mul_ofReal_sub_one]
+  have : 0 ≤ Real.sin (x / 2) := sin_nonneg_of_nonneg_of_le_pi (by linarith) (by linarith)
+  have : Real.cos x < 1 := by
+    rw [← Real.cos_zero]
+    apply Real.cos_lt_cos_of_nonneg_of_le_pi (by linarith) (by linarith) (by linarith)
+  rw [norm_eq_abs,]
+  rw [abs_mul, mul_pow]
+  rw [abs_sin_half]
+  rw [sq_sqrt (by linarith)]
+  rw [abs_of_nonneg (by linarith)]
+  simp [mul_pow]
+  ring_nf
+  rw [mul_comm, le_inv_mul_iff₀ (by simp_all)]
+  rw [← le_mul_inv_iff₀ (by simp_all)]
+  simp only [inv_inv]
+  ring_nf
+  suffices 1 - r ^ 2 / 2 ≤ Real.cos x by linarith
+  have : Real.cos r ≤ Real.cos x := Real.cos_le_cos_of_nonneg_of_le_pi (by linarith) (by linarith) (by linarith)
+  apply ge_trans this
+  exact Real.one_sub_sq_div_two_le_cos
+
+lemma aux1 {r x : ℝ} (hr : r ∈ Ioo 0 π) (hx : x ∈ Ioc 0 r) : r⁻¹ ≤ r / ‖1 - cexp (I * x)‖ ^ 2 := by
+  rw [mem_Ioo] at hr
+  rw [mem_Ioc] at hx
+  rw [Complex.exp_eq_exp_re_mul_sin_add_cos]
+  simp
+  rw [Complex.norm_eq_sqrt_sq_add_sq]
+  simp
+  rw [Complex.cos_ofReal_re, Complex.sin_ofReal_re]
+  rw [Real.sq_sqrt (by positivity)]
+  rw [sub_sq]
+  have : 1 - 2 * Real.cos x + Real.cos x ^ 2 + Real.sin x ^ 2 = 1 - 2 * Real.cos x + (Real.cos x ^ 2 + Real.sin x ^ 2) := by group
+  simp [this]
+  have : 1 - 2 * Real.cos x + 1 = 2 - 2 * Real.cos x := by group
+  simp [this]
+  have : Real.cos x < Real.cos 0 := Real.cos_lt_cos_of_nonneg_of_le_pi (by linarith) (by linarith) (by linarith)
+  simp at this
+  have : (2 - 2 * Real.cos x) ≠ 0 := by linarith
+  rw [le_div_iff₀ (by simp_all)]
+  rw [mul_comm, ← le_div_iff₀ (by simp_all)]
+  simp only [div_inv_eq_mul]
+  have : 2 - 2 * Real.cos x = 2 * (1 - Real.cos x) := by ring
+  rw [this]
+  rw [mul_comm, ← le_div_iff₀ (by simp_all)]
+  rw [sub_le_comm]
+  rw [← pow_two]
+  have : Real.cos r ≤ Real.cos x := Real.cos_le_cos_of_nonneg_of_le_pi (by linarith) (by linarith) (by linarith)
+  apply ge_trans this
+  exact Real.one_sub_sq_div_two_le_cos
+
+open Complex
+
+lemma normSq_one_sub_inv (x : ℝ) :
+    normSq (1 - cexp (I * (x : ℂ))) = normSq (1 - (cexp (I * (x : ℂ)))⁻¹) := by
+  set z : ℂ := cexp (I * x) with hz
+  have hz_norm : ‖z‖ = 1 := by
+    simpa [hz] using norm_exp (I * x)
+  have h_inv : z⁻¹ = conj z := by
+    simpa using inv_eq_conj hz_norm
+  have h_eq : 1 - z⁻¹ = conj (1 - z) := by
+    simp [h_inv]
+  have h_norm : normSq (1 - z⁻¹) = normSq (1 - z) := by
+    rw [h_eq, normSq_conj]
+  simpa [hz] using h_norm.symm
+
+
+-- set_option Elab.async false
+
+-- set_option trace.profiler.output.pp true in
+-- set_option trace.profiler.threshold 10 in
+-- set_option trace.profiler true in
+-- set_option maxHeartbeats 500000 in
+lemma integrable_bump_convolution' {f g : ℝ → ℂ}
     (hf : MemLp f ∞ volume) (periodic_f : f.Periodic (2 * π))
     (hg : MemLp g ∞ volume) (periodic_g : g.Periodic (2 * π))
-    {r : ℝ} (hr : r ∈ Ioo 0 π) (hg : ∀ x, ‖g x‖ ≤ niceKernel r x) :
+    {r : ℝ} (hr : r ∈ Ioo 0 π) (h : ∀ x, ‖g x‖ ≤ niceKernel r x) :
     eLpNorm ((Ioc 0 (2 * π)).indicator fun x ↦ ∫ y in (0)..2 * π, f y * g (x - y)) 2 ≤
     2 ^ (5 : ℝ) * eLpNorm ((Ioc 0 (2 * π)).indicator f) 2 := by
-  sorry
+
+  have q1 := young_convolution
+    hf.aestronglyMeasurable.aemeasurable periodic_f
+    hg.aestronglyMeasurable.aemeasurable periodic_g
+  have we : r > 0 := hr.1
+  have we2 : π > 0 := Real.pi_pos
+  have we3 : r < π := mem_Ioo.mp hr |>.2
+
+  have e1 (x) (h : x ∈ Icc r π) := lower_secant_bound (η := x) (x := x)
+    (by constructor <;> linarith [mem_Icc.mp h]) (by rw [abs_of_pos (by linarith [mem_Icc.mp h])])
+
+  have e2 (x) (h : x ∈ Icc r π) : 1 + r / ‖1 - cexp (I * ↑x)‖ ^ 2 ≤ 1 + 4 * r / x ^ 2 := calc
+    1 + r / ‖1 - cexp (I * ↑x)‖ ^ 2 ≤ 1 + r / (x / 2) ^ 2 := by
+      have := e1 x h
+      have : x > 0 := by linarith [mem_Icc.mp h]
+      have : 2 / π * r > 0 := by positivity
+      simp
+      refine (div_le_div_iff_of_pos_left we ?_ ?_).mpr ?_
+      · refine sq_pos_of_pos ?_
+        linarith
+      · refine sq_pos_of_pos ?_
+        linarith
+      · rw [sq_le_sq, abs_of_pos (by linarith), abs_of_pos (by linarith)]
+        linarith
+    _  = 1 + 4 * r / x ^2 := by ring
+
+  have h4 {x} : 0 < niceKernel r x := by
+    unfold niceKernel
+    split
+    · positivity
+    · apply lt_min_iff.mpr
+      constructor
+      · positivity
+      · apply lt_add_of_lt_of_nonneg (by norm_num)
+        apply div_nonneg (by positivity) (normSq_nonneg _)
+
+  have h3 {a b} : IntervalIntegrable
+      (niceKernel r) volume a b := by
+    unfold niceKernel
+    apply intervalIntegrable_const (c := r⁻¹) |>.mono_fun
+    · let S : Set ℝ := {x | cexp (I * x) = 1}
+      classical
+      have : AEStronglyMeasurable (S.piecewise (fun _ : ℝ => r⁻¹)
+          (fun x : ℝ => min r⁻¹ (1 + r / ‖1 - cexp (I * x)‖ ^ 2)))
+          (volume.restrict (uIoc a b)) := by
+        have : MeasurableSet S := by
+          simpa [S] using (isClosed_eq (by fun_prop) continuous_const).measurableSet
+        apply AEStronglyMeasurable.piecewise this
+        · fun_prop
+        · fun_prop
+      convert this using 1
+      simp [← indicator_add_compl_eq_piecewise]
+      unfold Set.indicator
+      simp [S, normSq_eq_norm_sq]
+      funext x
+      split_ifs with ff <;> simp [ff]
+    · apply Filter.Eventually.of_forall
+      intro y
+      simp_rw [norm_eq_abs]
+      rw [abs_of_pos (by exact h4), abs_of_pos (by positivity)]
+      split <;> simp
+
+  have bigg : ∫ x in (0)..π, niceKernel r x =
+      (∫ x in (0)..r, niceKernel r x) + ∫ x in (r)..π, niceKernel r x := by
+    rw [intervalIntegral.integral_add_adjacent_intervals h3 h3]
+
+  have cexp_ne_one (x) (h2 : x ∈ Ioo 0 (2 * π)): cexp (I * x) ≠ 1 := by
+    rw [mem_Ioo] at h2
+    rw [mul_comm] -- TODO: is our simp normal form backwards?
+    by_contra h
+    have hcos_eq : Real.cos x = 1 := by simpa using congr(Complex.re $h)
+    have : x = 0 := by rw [← Real.cos_eq_one_iff_of_lt_of_lt] <;> linarith
+    linarith
+
+  have q2 : (eLpNorm ((Ioc 0 (2 * π)).indicator g) 1 volume).toReal ≤ (2 ^ (5 : ℝ) : ENNReal).toReal := calc
+    _ ≤ ∫ x in (0)..2 * π, niceKernel r x := by
+      -- sorry -- TODO: this works
+      rw [@eLpNorm_one_eq_lintegral_enorm]
+      simp [enorm_indicator_eq_indicator_enorm]
+      have a2 : ∫⁻ (a : ℝ) in Ioc 0 (2 * π), ‖g a‖ₑ = ENNReal.ofReal (∫ (a : ℝ) in Ioc 0 (2 * π), ‖g a‖) := by
+        rw [← ofReal_integral_norm_eq_lintegral_enorm ?_]
+        refine IntegrableOn.integrable ?_
+        refine (intervalIntegrable_iff_integrableOn_Ioc_of_le (by linarith)).mp ?_
+        apply IntervalIntegrable.mono_fun h3
+        · exact AEStronglyMeasurable.restrict hg.1
+        · apply Filter.Eventually.of_forall
+          simpa [abs_of_pos h4] using h
+      rw [a2]
+      rw [ENNReal.toReal_ofReal]
+      · rw [intervalIntegral.integral_of_le (by linarith)]
+        apply setIntegral_mono_on ?_ ?_ measurableSet_Ioc (fun x _ ↦ h x)
+        · refine (intervalIntegrable_iff_integrableOn_Ioc_of_le (by linarith)).mp ?_
+          apply IntervalIntegrable.mono_fun h3
+          · exact AEStronglyMeasurable.norm (AEStronglyMeasurable.restrict hg.1)
+          · apply Filter.Eventually.of_forall
+            simpa [abs_of_pos h4] using h
+        · exact (intervalIntegrable_iff_integrableOn_Ioc_of_le (by linarith)).mp h3
+      · exact setIntegral_nonneg measurableSet_Ioc (fun _ _ ↦ norm_nonneg _)
+    _ = 2 * ∫ x in (0)..π, niceKernel r x := by
+      -- sorry -- TODO: this works
+      have niceKernel_even (x) : niceKernel r (-x) = niceKernel r x := by
+        simp [niceKernel, Complex.exp_neg]
+        have := Complex.norm_exp
+        convert rfl using 5
+        apply normSq_one_sub_inv
+      have : Function.Periodic (niceKernel r) (2 * π) := by
+        intro x
+        unfold niceKernel
+        simp [mul_add]
+        rw [mul_comm I (2 * π)]
+        simp [Complex.exp_add]
+      have : ∫ (x : ℝ) in (0)..(0 + 2 * π), niceKernel r x =
+          ∫ (x : ℝ) in -π..(-π + 2 * π), niceKernel r x :=
+        Function.Periodic.intervalIntegral_add_eq this _ _
+      simp at this
+      rw [this, show -π + 2 * π = π by linarith,
+        ← intervalIntegral.integral_add_adjacent_intervals (a := -π) (b := 0) h3 h3]
+      conv_rhs => rw [two_mul]
+      rw [add_right_cancel_iff]
+      have :  ∫ (x : ℝ) in -π..(0), niceKernel r (-x) = ∫ (x : ℝ) in -(0)..-(-π), niceKernel r x :=
+        intervalIntegral.integral_comp_neg (f := niceKernel r)
+      simpa [niceKernel_even]
+    _ ≤ 2 * (∫ x in (0)..r, 1 / r) + 2 * ∫ x in r..π, 1 + (4 * r) / x ^ 2 := by
+      -- sorry -- TODO: this works
+      have : ∫ (x : ℝ) in (0)..r, niceKernel r x =
+          ∫ (x : ℝ) in (0)..r, r⁻¹ := by
+        refine intervalIntegral.integral_congr ?_
+        intro x hx
+        simp only [niceKernel]
+        split_ifs with h0 <;> try rfl
+        have h1 : x ≠ 0 := by
+          contrapose! h0
+          simp [h0]
+        apply min_eq_left
+        rw [add_comm]
+        rw [uIcc_of_le (by positivity)] at hx
+        apply le_add_of_le_of_nonneg ?_ (by norm_num)
+        rw [normSq_eq_norm_sq]
+        apply aux1 hr
+        rw [mem_Icc] at hx
+        rw [mem_Ioc]
+        have := lt_of_le_of_ne hx.1 h1.symm
+        constructor <;> linarith
+      rw [bigg, this, mul_add]
+      simp
+      have ig3 : ContinuousOn (fun x : ℝ ↦ r / ‖1 - cexp (I * ↑x)‖ ^ 2) (Icc r π) := by
+        apply ContinuousOn.div₀ (by fun_prop) (by fun_prop)
+        intro x hx
+        have := e1 x hx
+        apply pow_ne_zero 2
+        have : 2 / π * r > 0 := by positivity
+        linarith [mem_Icc.mp hx]
+      have : ∫ (x : ℝ) in r..π, niceKernel r x ≤ ∫ (x : ℝ) in r..π, (1 + r / ‖1 - cexp (I * ↑x)‖ ^ 2) := by
+        apply intervalIntegral.integral_mono_on (by linarith) h3
+        · apply ContinuousOn.intervalIntegrable_of_Icc (by linarith)
+          exact ContinuousOn.add (by fun_prop) ig3
+        · unfold niceKernel
+          intro x hx
+          simp [normSq_eq_norm_sq]
+          have : cexp (I * x) ≠ 1 := cexp_ne_one x
+            (by rw [mem_Ioo]; constructor <;> linarith [mem_Icc.mp hx])
+          simp [this]
+      apply le_trans this
+      apply intervalIntegral.integral_mono_on (by linarith) ?_ ?_ e2
+      · exact ContinuousOn.intervalIntegrable_of_Icc (by linarith) (by fun_prop)
+      · have : ∀ x ∈ Icc r π, x ^ 2 ≠ 0 := fun x hx ↦ by
+          rw [mem_Icc] at hx
+          apply pow_ne_zero 2 (by linarith)
+        exact ContinuousOn.intervalIntegrable_of_Icc (by linarith) (by fun_prop (discharger := exact this))
+    _ ≤ 2 + 2 * π + 8 * r * (1 / r - 1 / π) := by
+      -- sorry -- TODO: this works
+      simp only [one_div, intervalIntegral.integral_const, sub_zero, smul_eq_mul, ne_eq,
+        show r ≠ 0 by positivity, not_false_eq_true, mul_inv_cancel₀, mul_one,
+        intervalIntegrable_const, isUnit_iff_ne_zero]
+      -- field_simp
+      -- ring_nf
+      rw [intervalIntegral.integral_add (intervalIntegrable_const) (by
+        -- TODO: duplicated above
+        apply ContinuousOn.intervalIntegrable_of_Icc (by linarith)
+        have : ∀ x ∈ Icc r π, x ^ 2 ≠ 0 := fun x hx ↦ by
+          rw [mem_Icc] at hx
+          apply pow_ne_zero 2 (by linarith)
+        fun_prop (discharger := exact this)
+        )]
+      have (x) : 4 * r / x ^ 2 = (4 * r) * (1 / x ^ 2) := by group
+      simp only [intervalIntegral.integral_const, smul_eq_mul, mul_one, this,
+        intervalIntegral.integral_const_mul, ge_iff_le]
+      rw [mul_add]
+      rw [← add_assoc, ← mul_assoc, show 2 * (4 * r) = 8 * r by ring]
+      have : 2 + 2 * (π - r) ≤ 2 + 2 * π := by linarith
+      refine add_le_add this ?_
+      apply mul_le_mul_of_nonneg_left ?_ (by positivity)
+      have (x : ℝ) : (1 / x ^ 2) = x ^ (-2 : ℤ) := by group
+      simp only [this]
+      rw [integral_zpow]
+      · apply le_of_eq
+        group
+      · refine Or.inr ⟨by linarith, ?_⟩
+        rw [mem_uIcc]
+        simp [we]
+        intro hfd
+        linarith
+    _ ≤ (2 ^ (5 : ℝ) : ENNReal).toReal := by
+      rw [mul_sub]
+      simp [show r ≠ 0 by positivity]
+      have : 8 - 8 * r * π⁻¹ ≤ 8 := by
+        apply sub_le_self
+        apply mul_nonneg (by positivity) (by positivity)
+      refine le_trans (add_le_add_left this _) ?_ -- TODO: use `grw`
+      have : π < 4 := Real.pi_lt_four
+      rw [add_comm, ← add_assoc]
+      refine le_trans (add_le_add_left (mul_le_mul_of_nonneg_left (le_of_lt this) (le_of_lt (by positivity))) _) ?_  -- TODO: use `grw`
+      norm_num
+
+  have : MemLp g ⊤ volume := by exact hg
+  have : eLpNorm ((Ioc 0 (2 * π)).indicator g) 1 volume ≤ eLpNorm g 1 volume := eLpNorm_indicator_le g
+
+  rw [mul_comm (a := 2 ^ 5)]
+  apply le_mul_of_le_mul_left q1
+  rwa [ENNReal.toReal_le_toReal ?_ ?_] at q2
+  · exact eLpNorm_indicator_one_ne_top hg
+  · norm_num
 
 /-- The function `L'`, defined in the Proof of Lemma 11.3.5. -/
 def dirichletApprox (n : ℕ) (x : ℝ) : ℂ :=
