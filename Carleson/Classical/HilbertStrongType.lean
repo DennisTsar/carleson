@@ -152,12 +152,6 @@ lemma young_convolution {f g : ℝ → ℂ} (hmf : AEMeasurable f) (periodic_f :
     (ContinuousLinearMap.mul ℝ ℂ) 0 h2 (le_refl 1) h2 (by rw [inv_one])
     periodic_f periodic_g hmf.aestronglyMeasurable hmg.aestronglyMeasurable 1 (by simp)
 
-lemma eLpNorm_indicator_one_ne_top {g : ℝ → ℂ} (hg : MemLp g ∞ volume) :
-    eLpNorm ((Set.Ioc 0 (2 * π)).indicator g) 1 volume ≠ ⊤ := by
-  grw [← lt_top_iff_ne_top, eLpNorm_indicator_eq_eLpNorm_restrict measurableSet_Ioc,
-    eLpNorm_le_eLpNorm_mul_rpow_measure_univ (OrderTop.le_top 1) (hg.restrict _).1]
-  exact mul_lt_top (hg.restrict _).eLpNorm_lt_top (by norm_num)
-
 lemma niceKernel_neg {r : ℝ} (x : ℝ) : niceKernel r (-x) = niceKernel r x := by
   simp only [niceKernel, ofReal_neg, mul_neg, Complex.exp_neg, inv_eq_one]
   congr 4
@@ -234,7 +228,11 @@ lemma integrable_bump_convolution' {f g : ℝ → ℂ}
 
   grw [young_convolution hf.1.aemeasurable periodic_f hg.1.aemeasurable periodic_g, mul_comm]
   gcongr
-  rw [← ENNReal.toReal_le_toReal (eLpNorm_indicator_one_ne_top hg) (by finiteness)]
+  have {a b} : eLpNorm ((Ioc a b).indicator g) 1 volume ≠ ⊤ := by
+    grw [← lt_top_iff_ne_top, eLpNorm_indicator_eq_eLpNorm_restrict measurableSet_Ioc,
+      eLpNorm_le_eLpNorm_mul_rpow_measure_univ (OrderTop.le_top 1) (hg.restrict _).1]
+    exact mul_lt_top (hg.restrict _).eLpNorm_lt_top (by norm_num)
+  rw [← ENNReal.toReal_le_toReal this (by norm_num)]
 
   calc
     _ ≤ ∫ x in (0)..2 * π, niceKernel r x := by
