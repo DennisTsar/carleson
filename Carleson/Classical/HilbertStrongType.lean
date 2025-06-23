@@ -4,8 +4,6 @@ import Carleson.Classical.SpectralProjectionBound
 import Carleson.ToMathlib.MeasureTheory.Integral.MeanInequalities
 import Mathlib.Data.Real.Pi.Bounds
 
-set_option linter.unusedVariables.analyzeTactics true
-
 /- This file contains the proof that the Hilbert kernel is a bounded operator. -/
 
 noncomputable section
@@ -14,8 +12,6 @@ open scoped Real ENNReal
 open Complex ComplexConjugate MeasureTheory Bornology Set
 -- open MeasureTheory Function Metric Bornology Real ENNReal MeasureTheory.ENNReal MeasureTheory
 
-open MeasureTheory ENNReal Real
-open scoped Real
 
 section
 @[reducible]
@@ -175,12 +171,12 @@ lemma intervalIntegrable_niceKernel {r : ℝ} (a b : ℝ) (hr : r > 0) :
     refine AEStronglyMeasurable.piecewise ?_ (by fun_prop) (by fun_prop)
     exact isClosed_eq (by fun_prop) continuous_const |>.measurableSet
   · refine Filter.Eventually.of_forall <| fun y ↦ ?_
-    simp_rw [norm_eq_abs, abs_of_pos (niceKernel_pos hr), abs_inv, abs_of_pos hr, niceKernel]
+    simp_rw [Real.norm_eq_abs, abs_of_pos (niceKernel_pos hr), abs_inv, abs_of_pos hr, niceKernel]
     split <;> simp
 
 lemma niceKernel_lowerBound {r x : ℝ} (hr : 0 < r ∧ r < π) (hx : 0 ≤ x ∧ x ≤ r) :
     niceKernel r x = r⁻¹ := by
-  rw [niceKernel, ite_eq_iff']
+  rw [niceKernel, ite_eq_iff', normSq_eq_norm_sq]
   refine ⟨fun _ ↦ rfl, fun hexp ↦ min_eq_left ?_⟩
   have : 0 < x := by
     contrapose! hexp
@@ -190,8 +186,8 @@ lemma niceKernel_lowerBound {r x : ℝ} (hr : 0 < r ∧ r < π) (hx : 0 ≤ x �
     have : Real.cos x < 1 := by
       rw [← Real.cos_zero]
       apply Real.cos_lt_cos_of_nonneg_of_le_pi <;> linarith
-    rw [normSq_eq_norm_sq, norm_sub_rev, norm_exp_I_mul_ofReal_sub_one, norm_mul, RCLike.norm_ofNat,
-      norm_eq_abs, abs_sin_half, mul_pow, sq_sqrt, le_div_iff₀', mul_inv_le_iff₀] <;> linarith
+    rw [norm_sub_rev, norm_exp_I_mul_ofReal_sub_one, norm_mul, RCLike.norm_ofNat, Real.norm_eq_abs,
+      Real.abs_sin_half, mul_pow, Real.sq_sqrt, le_div_iff₀', mul_inv_le_iff₀] <;> linarith
   grw [Real.one_sub_sq_div_two_le_cos]
   apply Real.cos_le_cos_of_nonneg_of_le_pi <;> linarith
 
@@ -231,7 +227,7 @@ lemma integrable_bump_convolution' {f g : ℝ → ℂ}
   have {a b} : eLpNorm ((Ioc a b).indicator g) 1 volume ≠ ⊤ := by
     grw [← lt_top_iff_ne_top, eLpNorm_indicator_eq_eLpNorm_restrict measurableSet_Ioc,
       eLpNorm_le_eLpNorm_mul_rpow_measure_univ (OrderTop.le_top 1) (hg.restrict _).1]
-    exact mul_lt_top (hg.restrict _).eLpNorm_lt_top (by norm_num)
+    exact ENNReal.mul_lt_top (hg.restrict _).eLpNorm_lt_top (by norm_num)
   rw [← ENNReal.toReal_le_toReal this (by norm_num)]
 
   calc

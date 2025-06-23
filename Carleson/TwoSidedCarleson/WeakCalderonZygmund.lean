@@ -1,8 +1,12 @@
 import Carleson.TwoSidedCarleson.Basic
 import Carleson.ToMathlib.HardyLittlewood
+import Carleson.Psi
 
 open MeasureTheory Set Bornology Function ENNReal Metric Filter Topology
 open scoped NNReal
+
+set_option linter.flexible false
+set_option linter.style.cdot false
 
 noncomputable section
 
@@ -705,6 +709,23 @@ We choose a more convenient definition, but prove in `tsum_czRemainder'` that th
 def czRemainder (α : ℝ≥0∞) (x : X) : ℂ :=
   f x - czApproximation f α x
 
+set_option linter.unusedVariables true
+set_option linter.unusedVariables.analyzeTactics true
+
+open scoped Classical in
+lemma sum_of_unique_slice
+    {α β M c : Type*} [AddCommMonoid M]
+    {z : c} {g : c → M} {f : α → Set β} {x : β}
+    (hdisj : univ.PairwiseDisjoint fun i ↦ f i)
+    (hx : ∃ i, x ∈ f i) :
+    (∑ᶠ i, if x ∈ f i then g z else 0) = g z := by
+  obtain ⟨i₀, hx₀⟩ := hx
+  have htmp : (∑ᶠ i, if x ∈ f i then g z else 0) = (if x ∈ f i₀ then g z else 0) := by
+    refine finsum_eq_single _ i₀ ?_
+    intro g hg
+    exact if_neg (Disjoint.notMem_of_mem_left (hdisj trivial trivial hg.symm) hx₀)
+  simpa [hx₀] using htmp
+
 /-- Part of Lemma 10.2.5, this is essentially (10.2.16) (both cases). -/
 def tsum_czRemainder' (hX : GeneralCase f α) (x : X) :
     ∑ᶠ i, czRemainder' hX i x = czRemainder f α x := by
@@ -759,6 +780,47 @@ private lemma enorm_czApproximation_le_finite [CompatibleFunctions ℝ X (defaul
   simp only [czApproximation, hX, reduceDIte, eventually_const]
   exact le_trans (enorm_integral_le_lintegral_enorm f) <| hα.trans α_le_mul_α
 
+  --     sorry
+  -- apply Filter.Eventually.of_forall
+  -- intro x
+  -- simp [czApproximation]
+  -- by_cases hX : GeneralCase f α
+  -- · simp [hX]
+  --   -- have : ⨍⁻ (x : X), ‖f x‖ₑ := sorry
+  --   sorry
+  -- · simp [hX]
+  --   -- have : ⨍⁻ (x : X), ‖f x‖ₑ = ‖⨍ (x : X), f x‖ₑ := by
+  --   --   have : ⨍⁻ (x : X), ‖f x‖ₑ ≠ ⊤ := sorry
+  --   --   have : ‖⨍ (x : X), f x‖ₑ ≠ ⊤ := sorry
+  --   --   sorry
+  --   have : ‖⨍ (y : X), f y‖ₑ = ⨍⁻ (x : X), ‖f x‖ₑ := by
+  --     sorry
+  --   have : 0 < a := by positivity
+  --   have : 0 < 2 ^ (3 * a) := by positivity
+  --   have : (1 : ℝ≥0∞) < 2 := by norm_num
+  --   have : α ≤ α * (2 ^ (3 * a)) := by
+  --     refine (ENNReal.div_le_iff ?_ ?_).mp ?_
+  --     · positivity
+  --     · exact Ne.symm (not_eq_of_beq_eq_false rfl)
+  --     · by_cases ui : α = ⊤
+  --       · have : α ≠ 0 := by simp [ui]
+  --         exact StrictMono.maximal_preimage_top (fun ⦃a b⦄ a ↦ a) ui _
+  --       · refine div_le_of_le_mul ?_
+  --         by_cases ui2 : α = 0
+  --         · simp_all;
+  --         · simp_all; refine (ENNReal.inv_mul_le_iff ui2 ui).mp ?_
+  --           have : α⁻¹ * α = 1 := ENNReal.inv_mul_cancel ui2 ui
+  --           rw [this]
+  --           refine one_le_pow₀ ?_
+  --           norm_num
+  --   have : α * (2 ^ (3 * a)) = 2 ^ (3 * a) * α := by group
+  --   have : α ≤ 2 ^ (3 * a) * α := by simp_all
+  --   have : ‖⨍ (y : X), f y‖ₑ < α := by (expose_names; exact lt_of_eq_of_lt this_1 hα)
+  --   refine le_mul_of_one_le_of_le ?_ ?_
+  --   · refine one_le_pow_of_one_le' ?_ (3 * a); norm_num
+  --   · exact le_of_lt this
+
+open scoped Classical in
 /-- Equation (10.2.17) specialized to the general case. -/
 lemma enorm_czApproximation_le_infinite {hf : BoundedFiniteSupport f} (hX : GeneralCase f α) :
     ∀ᵐ x, ‖czApproximation f α x‖ₑ ≤ 2 ^ (3 * a) * α := by
@@ -820,6 +882,9 @@ private lemma eLpNorm_czApproximation_le_infinite (hX : GeneralCase f α) :
     apply le_of_eq ∘ setLIntegral_congr_fun_ae (by measurability)
     exact Eventually.of_forall (fun x hx ↦ by simp_all [czApproximation, hX])
 
+
+-- I AM HERE
+set_option maxHeartbeats 600000 in --
 /-- Part of Lemma 10.2.5, equation (10.2.18) (both cases). -/
 lemma eLpNorm_czApproximation_le [CompatibleFunctions ℝ X (defaultA a)]
     {hf : BoundedFiniteSupport f} (hα : 0 < α) :
@@ -829,10 +894,12 @@ lemma eLpNorm_czApproximation_le [CompatibleFunctions ℝ X (defaultA a)]
 /-- Part of Lemma 10.2.5, equation (10.2.19) (general case). -/
 lemma support_czRemainder'_subset (ha : 4 ≤ a) {hf : BoundedFiniteSupport f} {hX : GeneralCase f α}
     {i : ℕ} :
-    support (czRemainder' ha hf hX i) ⊆ czBall3 ha hf hX i := by
+    support (czRemainder' hX i) ⊆ czBall3 hX i := by
   rw [support_subset_iff']
   intro x hx
-  exact indicator_of_notMem (fun a ↦ hx (czPartition_subset_czBall3 ha a)) _
+  sorry
+
+set_option linter.flexible false in
 
 /-- Part of Lemma 10.2.5, equation (10.2.20) (general case). -/
 lemma integral_czRemainder' {hX : GeneralCase f α} {i : ℕ} :
@@ -910,6 +977,47 @@ lemma eLpNorm_czRemainder_le [CompatibleFunctions ℝ X (defaultA a)] {hf : Boun
     _ ≤ 2 ^ (2 * a + 1) * α * volume (univ : Set X) := by
       rw [← mul_assoc]; gcongr; simpa using pow_le_pow_right' one_le_two (Nat.le_add_left 1 (2 * a))
 
+-- open MeasureTheory Measure NNReal ENNReal Metric Filter Topology TopologicalSpace
+
+-- variable {X : Type*} [PseudoMetricSpace X]
+-- variable {A : ℝ≥0} [MeasurableSpace X] {μ : Measure X} [μ.IsDoubling A]
+-- variable [ProperSpace X] [IsFiniteMeasureOnCompacts μ]
+
+-- lemma measure_real_ball_two_le_same2 (x : X) (r : ℝ) :
+--     μ.real (ball x (1.5 * r)) ≤ A * μ.real (ball x r) := by
+--   simp_rw [Measure.real, ← ENNReal.coe_toReal, ← toReal_mul]
+--   gcongr
+--   · exact ENNReal.mul_ne_top coe_ne_top measure_ball_lt_top.ne
+--   · have := measure_ball_two_le_same x (r * 1.5) (μ := μ)
+--     gcongr
+
+-- lemma measure_ball_four_le_same2 (x : X) (r : ℝ) :
+--     μ.real (ball x (3 * r)) ≤ A ^ 2 * μ.real (ball x r) := by
+--   calc μ.real (ball x (3 * r))
+--     _ = μ.real (ball x (2 * (1.5 * r))) := by ring_nf
+--     _ ≤ A * μ.real (ball x (1.5 * r)) := measure_real_ball_two_le_same ..
+--     _ ≤ A * (A * μ.real (ball x r)) := mul_le_mul_of_nonneg_left
+--       (measure_real_ball_two_le_same2 ..) (zero_le_coe)
+--     _ = A ^ 2 * μ.real (ball x r) := by ring_nf
+
+-- lemma measure_ball_four_le_same2' (x : X) (r : ℝ) :
+--     μ (ball x (3 * r)) ≤ A ^ 2 * μ (ball x r) := by
+--   have hfactor : (A ^ 2 : ℝ≥0∞) ≠ ⊤ := ne_of_beq_false rfl
+--   rw [← ENNReal.ofReal_toReal (measure_ball_ne_top (x := x) (r := 3 * r)),
+--     ← ENNReal.ofReal_toReal (measure_ball_ne_top (x := x) (r := r)), ← ENNReal.ofReal_toReal hfactor,
+--     ← ENNReal.ofReal_mul]
+--   · exact ENNReal.ofReal_le_ofReal <| measure_ball_four_le_same2 x r
+--   · simp
+
+-- lemma zvcx {α} {x : α} {f : α → ℝ} : volume {x | f x} = ∑' i, volume {x | f x} := by
+--   have : volume {x | f x} = ∑' i, volume (czBall ha hf hX i) := by
+--     simp [czBall3, czBall]
+--   rw [this]
+--   refine ENNReal.tsum_congr ?_
+--   intro i
+--   simp [czBall3, czBall]
+
+set_option maxHeartbeats 600000 in --
 /-- Part of Lemma 10.2.5, equation (10.2.22) (general case). -/
 lemma tsum_volume_czBall3_le [CompatibleFunctions ℝ X (defaultA a)] {hf : BoundedFiniteSupport f}
     (hX : GeneralCase f α) (hα : 0 < α) :
@@ -970,6 +1078,15 @@ variable [CompatibleFunctions ℝ X (defaultA a)] [IsCancellative X (defaultτ a
 lemma estimate_good {hf : BoundedFiniteSupport f} (hα : ⨍⁻ x, ‖f x‖ₑ / c10_0_3 a < α) :
     distribution (czOperator K r (czApproximation f α)) (α / 2) volume ≤
     C10_2_6 a / α * eLpNorm f 1 volume := by
+  -- have := norm_czApproximation_le ha (hf := hf) (α := α) (by
+  --   have : ⨍⁻ (x : X), ‖f x‖ₑ / ↑(c10_0_3 a) = (⨍⁻ (x : X), ‖f x‖ₑ) / ↑(c10_0_3 a) := by
+  --     refine (ENNReal.eq_div_iff ?_ ?_).mpr ?_
+  --     · sorry
+  --     · sorry
+  --     ·
+  --       sorry
+  --   simp [c10_0_3] at hα
+  --   sorry)
   sorry
 
 /-- The constant used in `czOperatorBound`. -/
